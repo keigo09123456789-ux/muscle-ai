@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type WorkoutSet = {
   id: number;
@@ -9,10 +9,31 @@ type WorkoutSet = {
   reps: number;
 };
 
+const STORAGE_KEY = "muscle-ai-bench-press-sets";
+
 export default function BenchPressPage() {
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
   const [sets, setSets] = useState<WorkoutSet[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const savedSets = localStorage.getItem(STORAGE_KEY);
+
+    if (savedSets) {
+      setSets(JSON.parse(savedSets));
+    }
+
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) {
+      return;
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sets));
+  }, [sets, loaded]);
 
   function addSet() {
     const weightNumber = Number(weight);
@@ -36,6 +57,22 @@ export default function BenchPressPage() {
 
   function deleteSet(id: number) {
     setSets(sets.filter((set) => set.id !== id));
+  }
+
+  function clearWorkout() {
+    if (sets.length === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "今日のベンチプレス記録をすべて削除しますか？"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setSets([]);
   }
 
   function completeWorkout() {
@@ -105,7 +142,19 @@ export default function BenchPressPage() {
         </div>
 
         <section className="mt-8">
-          <h2 className="text-2xl font-semibold">今日の記録</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">今日の記録</h2>
+
+            {sets.length > 0 && (
+              <button
+                type="button"
+                onClick={clearWorkout}
+                className="text-sm text-red-400 transition hover:text-red-300"
+              >
+                全削除
+              </button>
+            )}
+          </div>
 
           {sets.length === 0 ? (
             <p className="mt-4 text-zinc-500">
