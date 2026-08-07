@@ -1,0 +1,154 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+
+type WorkoutSet = {
+  id: number;
+  weight: number;
+  reps: number;
+};
+
+export default function BenchPressPage() {
+  const [weight, setWeight] = useState("");
+  const [reps, setReps] = useState("");
+  const [sets, setSets] = useState<WorkoutSet[]>([]);
+
+  function addSet() {
+    const weightNumber = Number(weight);
+    const repsNumber = Number(reps);
+
+    if (weightNumber <= 0 || repsNumber <= 0) {
+      alert("重量と回数を入力してください");
+      return;
+    }
+
+    const newSet: WorkoutSet = {
+      id: Date.now(),
+      weight: weightNumber,
+      reps: repsNumber,
+    };
+
+    setSets([...sets, newSet]);
+    setWeight("");
+    setReps("");
+  }
+
+  function deleteSet(id: number) {
+    setSets(sets.filter((set) => set.id !== id));
+  }
+
+  function completeWorkout() {
+    if (sets.length === 0) {
+      alert("セットを1つ以上登録してください");
+      return;
+    }
+
+    alert("トレーニングを完了しました！");
+  }
+
+  return (
+    <main className="min-h-screen bg-zinc-950 px-6 py-10 text-white">
+      <div className="mx-auto w-full max-w-md">
+        <Link
+          href="/workout"
+          className="text-sm text-zinc-400 transition hover:text-white"
+        >
+          ← 種目一覧へ戻る
+        </Link>
+
+        <h1 className="mt-8 text-4xl font-bold">ベンチプレス</h1>
+
+        <p className="mt-3 text-zinc-400">
+          重量と回数を入力して、セットを記録しましょう
+        </p>
+
+        <div className="mt-8 rounded-2xl bg-zinc-900 p-6">
+          <label className="block text-sm text-zinc-300">重量</label>
+
+          <div className="mt-2 flex items-center gap-3">
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={weight}
+              onChange={(event) => setWeight(event.target.value)}
+              placeholder="例：80"
+              className="w-full rounded-xl bg-zinc-800 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+            />
+
+            <span className="text-zinc-400">kg</span>
+          </div>
+
+          <label className="mt-6 block text-sm text-zinc-300">回数</label>
+
+          <div className="mt-2 flex items-center gap-3">
+            <input
+              type="number"
+              min="1"
+              value={reps}
+              onChange={(event) => setReps(event.target.value)}
+              placeholder="例：10"
+              className="w-full rounded-xl bg-zinc-800 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+            />
+
+            <span className="text-zinc-400">回</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={addSet}
+            className="mt-6 w-full rounded-xl bg-blue-600 py-3 font-bold transition hover:bg-blue-700"
+          >
+            セットを追加
+          </button>
+        </div>
+
+        <section className="mt-8">
+          <h2 className="text-2xl font-semibold">今日の記録</h2>
+
+          {sets.length === 0 ? (
+            <p className="mt-4 text-zinc-500">
+              まだセットが登録されていません
+            </p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {sets.map((set, index) => (
+                <div
+                  key={set.id}
+                  className="flex items-center justify-between rounded-xl bg-zinc-900 p-4"
+                >
+                  <div>
+                    <p className="text-sm text-zinc-400">
+                      {index + 1}セット目
+                    </p>
+
+                    <p className="mt-1 font-semibold">
+                      {set.weight}kg × {set.reps}回
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => deleteSet(set.id)}
+                    className="rounded-lg bg-red-600 px-3 py-2 text-sm font-bold transition hover:bg-red-700"
+                  >
+                    削除
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <button
+          type="button"
+          onClick={completeWorkout}
+          className="mt-8 w-full rounded-xl bg-green-600 py-3 font-bold transition hover:bg-green-700"
+        >
+          トレーニング完了
+        </button>
+      </div>
+    </main>
+  );
+}
