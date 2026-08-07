@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type WorkoutSet = {
   id: number;
@@ -24,13 +24,19 @@ export default function BenchPressPage() {
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
   const [sets, setSets] = useState<WorkoutSet[]>([]);
+  const [history, setHistory] = useState<WorkoutHistory[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     const savedSets = localStorage.getItem(CURRENT_SETS_KEY);
+    const savedHistory = localStorage.getItem(HISTORY_KEY);
 
     if (savedSets) {
       setSets(JSON.parse(savedSets));
+    }
+
+    if (savedHistory) {
+      setHistory(JSON.parse(savedHistory));
     }
 
     setLoaded(true);
@@ -41,8 +47,67 @@ export default function BenchPressPage() {
       return;
     }
 
-    localStorage.setItem(CURRENT_SETS_KEY, JSON.stringify(sets));
+    localStorage.setItem(
+      CURRENT_SETS_KEY,
+      JSON.stringify(sets)
+    );
   }, [sets, loaded]);
+
+  const latestBenchWorkout = useMemo(() => {
+    return history.find(
+      (workout) => workout.exercise === "ベンチプレス"
+    );
+  }, [history]);
+
+  const recommendation = useMemo(() => {
+    if (!latestBenchWorkout) {
+      return {
+        weight: null,
+        reps: null,
+        message: "まずは今日の記録を作ってみましょう！",
+      };
+    }
+
+    const bestSet = latestBenchWorkout.sets.reduce((best, set) => {
+      if (set.weight > best.weight) {
+        return set;
+      }
+
+      if (
+        set.weight === best.weight &&
+        set.reps > best.reps
+      ) {
+        return set;
+      }
+
+      return best;
+    });
+
+    if (bestSet.reps >= 10) {
+      return {
+        weight: bestSet.weight + 2.5,
+        reps: "8〜10",
+        message:
+          "前回10回以上できています。重量アップに挑戦しましょう🔥",
+      };
+    }
+
+    if (bestSet.reps >= 8) {
+      return {
+        weight: bestSet.weight,
+        reps: "10",
+        message:
+          "前回の重量を維持して、まず10回達成を狙いましょう💪",
+      };
+    }
+
+    return {
+      weight: Math.max(bestSet.weight - 2.5, 0),
+      reps: "8〜10",
+      message:
+        "少し重量を下げて、フォームと回数を安定させましょう。",
+    };
+  }, [latestBenchWorkout]);
 
   function addSet() {
     const weightNumber = Number(weight);
@@ -103,17 +168,14 @@ export default function BenchPressPage() {
       volume,
     };
 
-    const savedHistory = localStorage.getItem(HISTORY_KEY);
-
-    const history: WorkoutHistory[] = savedHistory
-      ? JSON.parse(savedHistory)
-      : [];
+    const updatedHistory = [newHistory, ...history];
 
     localStorage.setItem(
       HISTORY_KEY,
-      JSON.stringify([newHistory, ...history])
+      JSON.stringify(updatedHistory)
     );
 
+    setHistory(updatedHistory);
     setSets([]);
     localStorage.removeItem(CURRENT_SETS_KEY);
 
@@ -130,14 +192,57 @@ export default function BenchPressPage() {
           ← 種目一覧へ戻る
         </Link>
 
-        <h1 className="mt-8 text-4xl font-bold">ベンチプレス</h1>
+        <h1 className="mt-8 text-4xl font-bold">
+          ベンチプレス
+        </h1>
 
-        <p className="mt-3 text-zinc-400">
+        <section className="mt-8 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-6">
+          <p className="text-sm font-semibold text-blue-300">
+            🤖 AIコーチ
+          </p>
+
+          {latestBenchWorkout && (
+            <p className="mt-3 text-sm text-zinc-400">
+              前回最高セット：
+              {Math.max(
+                ...latestBenchWorkout.sets.map(
+                  (set) => set.weight
+                )
+              )}
+              kg
+            </p>
+          )}
+
+          {recommendation.weight ? (
+            <>
+              <p className="mt-4 text-sm text-zinc-400">
+                次回おすすめ
+              </p>
+
+              <p className="mt-1 text-3xl font-bold">
+                {recommendation.weight}kg ×{" "}
+                {recommendation.reps}回
+              </p>
+            </>
+          ) : (
+            <p className="mt-4 text-xl font-bold">
+              初回トレーニング
+            </p>
+          )}
+
+          <p className="mt-4 text-sm leading-6 text-zinc-300">
+            {recommendation.message}
+          </p>
+        </section>
+
+        <p className="mt-8 text-zinc-400">
           重量と回数を入力して、セットを記録しましょう
         </p>
 
-        <div className="mt-8 rounded-2xl bg-zinc-900 p-6">
-          <label className="block text-sm text-zinc-300">重量</label>
+        <div className="mt-5 rounded-2xl bg-zinc-900 p-6">
+          <label className="block text-sm text-zinc-300">
+            重量
+          </label>
 
           <div className="mt-2 flex items-center gap-3">
             <input
@@ -145,7 +250,9 @@ export default function BenchPressPage() {
               min="0"
               step="0.5"
               value={weight}
-              onChange={(event) => setWeight(event.target.value)}
+              onChange={(event) =>
+                setWeight(event.target.value)
+              }
               placeholder="例：80"
               className="w-full rounded-xl bg-zinc-800 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -153,14 +260,18 @@ export default function BenchPressPage() {
             <span className="text-zinc-400">kg</span>
           </div>
 
-          <label className="mt-6 block text-sm text-zinc-300">回数</label>
+          <label className="mt-6 block text-sm text-zinc-300">
+            回数
+          </label>
 
           <div className="mt-2 flex items-center gap-3">
             <input
               type="number"
               min="1"
               value={reps}
-              onChange={(event) => setReps(event.target.value)}
+              onChange={(event) =>
+                setReps(event.target.value)
+              }
               placeholder="例：10"
               className="w-full rounded-xl bg-zinc-800 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -179,7 +290,9 @@ export default function BenchPressPage() {
 
         <section className="mt-8">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">今日の記録</h2>
+            <h2 className="text-2xl font-semibold">
+              今日の記録
+            </h2>
 
             {sets.length > 0 && (
               <button
