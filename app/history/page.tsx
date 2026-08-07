@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
 type WorkoutSet = {
   id: number;
@@ -30,6 +39,54 @@ export default function HistoryPage() {
     }
   }, []);
 
+  const bestWeight = useMemo(() => {
+    if (history.length === 0) {
+      return 0;
+    }
+
+    return Math.max(
+      ...history.flatMap((workout) =>
+        workout.sets.map((set) => set.weight)
+      )
+    );
+  }, [history]);
+
+  const latestWorkout = history[0];
+  const previousWorkout = history[1];
+
+  const latestMaxWeight = latestWorkout
+    ? Math.max(...latestWorkout.sets.map((set) => set.weight))
+    : 0;
+
+  const previousMaxWeight = previousWorkout
+    ? Math.max(...previousWorkout.sets.map((set) => set.weight))
+    : 0;
+
+  const weightDifference =
+    latestWorkout && previousWorkout
+      ? latestMaxWeight - previousMaxWeight
+      : 0;
+
+  const estimatedOneRepMax = latestWorkout
+    ? Math.max(
+        ...latestWorkout.sets.map(
+          (set) => set.weight * (1 + set.reps / 30)
+        )
+      )
+    : 0;
+
+  const chartData = useMemo(() => {
+    return [...history]
+      .reverse()
+      .map((workout, index) => ({
+        name: `${index + 1}回目`,
+        date: workout.date,
+        maxWeight: Math.max(
+          ...workout.sets.map((set) => set.weight)
+        ),
+      }));
+  }, [history]);
+
   function deleteHistory(id: number) {
     const updatedHistory = history.filter((item) => item.id !== id);
 
@@ -43,7 +100,7 @@ export default function HistoryPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-10 text-white">
-      <div className="mx-auto w-full max-w-md">
+      <div className="mx-auto w-full max-w-2xl">
         <Link
           href="/"
           className="text-sm text-zinc-400 transition hover:text-white"
@@ -51,7 +108,85 @@ export default function HistoryPage() {
           ← ホームへ戻る
         </Link>
 
-        <h1 className="mt-8 text-4xl font-bold">📊 トレーニング履歴</h1>
+        <h1 className="mt-8 text-4xl font-bold">
+          📊 トレーニング履歴
+        </h1>
+
+        {history.length > 0 && (
+          <>
+            <section className="mt-8 grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl bg-zinc-900 p-5">
+                <p className="text-sm text-zinc-400">
+                  🏆 自己ベスト重量
+                </p>
+
+                <p className="mt-2 text-3xl font-bold">
+                  {bestWeight} kg
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-zinc-900 p-5">
+                <p className="text-sm text-zinc-400">
+                  🧮 推定1RM
+                </p>
+
+                <p className="mt-2 text-3xl font-bold">
+                  {estimatedOneRepMax.toFixed(1)} kg
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-zinc-900 p-5">
+                <p className="text-sm text-zinc-400">
+                  📈 前回比
+                </p>
+
+                <p className="mt-2 text-3xl font-bold">
+                  {previousWorkout
+                    ? weightDifference > 0
+                      ? `+${weightDifference}kg`
+                      : `${weightDifference}kg`
+                    : "-"}
+                </p>
+              </div>
+            </section>
+
+            <section className="mt-8 rounded-2xl bg-zinc-900 p-6">
+              <h2 className="text-2xl font-bold">
+                📈 最高重量の推移
+              </h2>
+
+              <p className="mt-2 text-sm text-zinc-400">
+                トレーニングごとの最高重量
+              </p>
+
+              <div className="mt-6 h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip
+                      formatter={(value) => [`${value} kg`, "最高重量"]}
+                      labelFormatter={(label, payload) => {
+                        const item = payload?.[0]?.payload;
+                        return item
+                          ? `${label} / ${item.date}`
+                          : label;
+                      }}
+                    />
+
+                    <Line
+                      type="monotone"
+                      dataKey="maxWeight"
+                      strokeWidth={3}
+                      dot
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          </>
+        )}
 
         {history.length === 0 ? (
           <p className="mt-8 text-zinc-500">
