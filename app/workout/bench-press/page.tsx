@@ -9,7 +9,16 @@ type WorkoutSet = {
   reps: number;
 };
 
-const STORAGE_KEY = "muscle-ai-bench-press-sets";
+type WorkoutHistory = {
+  id: number;
+  date: string;
+  exercise: string;
+  sets: WorkoutSet[];
+  volume: number;
+};
+
+const CURRENT_SETS_KEY = "muscle-ai-bench-press-sets";
+const HISTORY_KEY = "muscle-ai-workout-history";
 
 export default function BenchPressPage() {
   const [weight, setWeight] = useState("");
@@ -18,7 +27,7 @@ export default function BenchPressPage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const savedSets = localStorage.getItem(STORAGE_KEY);
+    const savedSets = localStorage.getItem(CURRENT_SETS_KEY);
 
     if (savedSets) {
       setSets(JSON.parse(savedSets));
@@ -32,7 +41,7 @@ export default function BenchPressPage() {
       return;
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sets));
+    localStorage.setItem(CURRENT_SETS_KEY, JSON.stringify(sets));
   }, [sets, loaded]);
 
   function addSet() {
@@ -81,7 +90,34 @@ export default function BenchPressPage() {
       return;
     }
 
-    alert("トレーニングを完了しました！");
+    const volume = sets.reduce(
+      (total, set) => total + set.weight * set.reps,
+      0
+    );
+
+    const newHistory: WorkoutHistory = {
+      id: Date.now(),
+      date: new Date().toLocaleDateString("ja-JP"),
+      exercise: "ベンチプレス",
+      sets,
+      volume,
+    };
+
+    const savedHistory = localStorage.getItem(HISTORY_KEY);
+
+    const history: WorkoutHistory[] = savedHistory
+      ? JSON.parse(savedHistory)
+      : [];
+
+    localStorage.setItem(
+      HISTORY_KEY,
+      JSON.stringify([newHistory, ...history])
+    );
+
+    setSets([]);
+    localStorage.removeItem(CURRENT_SETS_KEY);
+
+    alert("トレーニング記録を履歴に保存しました！");
   }
 
   return (
@@ -197,6 +233,13 @@ export default function BenchPressPage() {
         >
           トレーニング完了
         </button>
+
+        <Link
+          href="/history"
+          className="mt-4 block w-full rounded-xl bg-zinc-800 py-3 text-center font-bold transition hover:bg-zinc-700"
+        >
+          履歴を見る
+        </Link>
       </div>
     </main>
   );
