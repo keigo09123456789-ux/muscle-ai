@@ -22,6 +22,7 @@ type WorkoutHistory = {
   id: number;
   date: string;
   exercise: string;
+  exerciseId?: string;
   sets: WorkoutSet[];
   volume: number;
 };
@@ -30,6 +31,7 @@ const HISTORY_KEY = "muscle-ai-workout-history";
 
 export default function HistoryPage() {
   const [history, setHistory] = useState<WorkoutHistory[]>([]);
+  const [selectedExercise, setSelectedExercise] = useState("all");
 
   useEffect(() => {
     const savedHistory = localStorage.getItem(HISTORY_KEY);
@@ -39,56 +41,70 @@ export default function HistoryPage() {
     }
   }, []);
 
+  const exerciseNames = useMemo(() => {
+    return Array.from(
+      new Set(history.map((item) => item.exercise))
+    );
+  }, [history]);
+
+  const filteredHistory = useMemo(() => {
+    if (selectedExercise === "all") {
+      return history;
+    }
+
+    return history.filter(
+      (item) => item.exercise === selectedExercise
+    );
+  }, [history, selectedExercise]);
+
+  const statsHistory =
+    selectedExercise === "all"
+      ? history
+      : filteredHistory;
+
   const bestWeight = useMemo(() => {
-    if (history.length === 0) {
+    if (statsHistory.length === 0) {
       return 0;
     }
 
     return Math.max(
-      ...history.flatMap((workout) =>
+      ...statsHistory.flatMap((workout) =>
         workout.sets.map((set) => set.weight)
       )
     );
-  }, [history]);
+  }, [statsHistory]);
 
-  const latestWorkout = history[0];
-  const previousWorkout = history[1];
+  const estimatedOneRepMax = useMemo(() => {
+    if (statsHistory.length === 0) {
+      return 0;
+    }
 
-  const latestMaxWeight = latestWorkout
-    ? Math.max(...latestWorkout.sets.map((set) => set.weight))
-    : 0;
-
-  const previousMaxWeight = previousWorkout
-    ? Math.max(...previousWorkout.sets.map((set) => set.weight))
-    : 0;
-
-  const weightDifference =
-    latestWorkout && previousWorkout
-      ? latestMaxWeight - previousMaxWeight
-      : 0;
-
-  const estimatedOneRepMax = latestWorkout
-    ? Math.max(
-        ...latestWorkout.sets.map(
+    return Math.max(
+      ...statsHistory.flatMap((workout) =>
+        workout.sets.map(
           (set) => set.weight * (1 + set.reps / 30)
         )
       )
-    : 0;
+    );
+  }, [statsHistory]);
 
   const chartData = useMemo(() => {
-    return [...history]
+    return [...filteredHistory]
       .reverse()
       .map((workout, index) => ({
         name: `${index + 1}回目`,
         date: workout.date,
+        exercise: workout.exercise,
         maxWeight: Math.max(
           ...workout.sets.map((set) => set.weight)
         ),
       }));
-  }, [history]);
+  }, [filteredHistory]);
 
   function deleteHistory(id: number) {
-    const updatedHistory = history.filter((item) => item.id !== id);
+    const updatedHistory = history.filter(
+      (item) => item.id !== id
+    );
 
     setHistory(updatedHistory);
 
@@ -112,12 +128,34 @@ export default function HistoryPage() {
           📊 トレーニング履歴
         </h1>
 
-        {history.length > 0 && (
+        <div className="mt-8">
+          <label className="text-sm text-zinc-400">
+            種目を選択
+          </label>
+
+          <select
+            value={selectedExercise}
+            onChange={(event) =>
+              setSelectedExercise(event.target.value)
+            }
+            className="mt-2 w-full rounded-xl bg-zinc-900 px-4 py-3 outline-none"
+          >
+            <option value="all">すべての種目</option>
+
+            {exerciseNames.map((exercise) => (
+              <option key={exercise} value={exercise}>
+                {exercise}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {statsHistory.length > 0 && (
           <>
-            <section className="mt-8 grid gap-4 md:grid-cols-3">
+            <section className="mt-8 grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl bg-zinc-900 p-5">
                 <p className="text-sm text-zinc-400">
-                  🏆 自己ベスト重量
+                  🏆 最高重量
                 </p>
 
                 <p className="mt-2 text-3xl font-bold">
@@ -134,20 +172,6 @@ export default function HistoryPage() {
                   {estimatedOneRepMax.toFixed(1)} kg
                 </p>
               </div>
-
-              <div className="rounded-2xl bg-zinc-900 p-5">
-                <p className="text-sm text-zinc-400">
-                  📈 前回比
-                </p>
-
-                <p className="mt-2 text-3xl font-bold">
-                  {previousWorkout
-                    ? weightDifference > 0
-                      ? `+${weightDifference}kg`
-                      : `${weightDifference}kg`
-                    : "-"}
-                </p>
-              </div>
             </section>
 
             <section className="mt-8 rounded-2xl bg-zinc-900 p-6">
@@ -156,21 +180,28 @@ export default function HistoryPage() {
               </h2>
 
               <p className="mt-2 text-sm text-zinc-400">
-                トレーニングごとの最高重量
+                選択した種目の成長を表示します
               </p>
 
               <div className="mt-6 h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
+
                     <XAxis dataKey="name" />
+
                     <YAxis />
+
                     <Tooltip
-                      formatter={(value) => [`${value} kg`, "最高重量"]}
+                      formatter={(value) => [
+                        `${value} kg`,
+                        "最高重量",
+                      ]}
                       labelFormatter={(label, payload) => {
                         const item = payload?.[0]?.payload;
+
                         return item
-                          ? `${label} / ${item.date}`
+                          ? `${label} / ${item.date} / ${item.exercise}`
                           : label;
                       }}
                     />
@@ -188,13 +219,13 @@ export default function HistoryPage() {
           </>
         )}
 
-        {history.length === 0 ? (
+        {filteredHistory.length === 0 ? (
           <p className="mt-8 text-zinc-500">
-            まだトレーニング履歴がありません
+            履歴がありません
           </p>
         ) : (
           <div className="mt-8 space-y-6">
-            {history.map((item) => (
+            {filteredHistory.map((item) => (
               <article
                 key={item.id}
                 className="rounded-2xl bg-zinc-900 p-6"
