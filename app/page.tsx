@@ -1,11 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
+  const router = useRouter();
 
+  async function handleLogout() {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      alert(`ログアウトに失敗しました: ${error.message}`);
+      return;
+    }
+
+    router.push("/login");
+  }
 
   return (
+
+
     <main className="flex min-h-screen flex-col items-center bg-zinc-950 p-8 text-white">
       <h1 className="mt-10 text-5xl font-bold">💪 MuscleAI</h1>
 
@@ -24,6 +39,14 @@ export default function Home() {
 >
   トレーニング開始
 </Link>
+
+<button
+  type="button"
+  onClick={handleLogout}
+  className="mt-4 w-full rounded-xl bg-zinc-800 py-3 font-bold transition hover:bg-zinc-700"
+>
+  ログアウト
+</button>
       </div>
     </main>
   );

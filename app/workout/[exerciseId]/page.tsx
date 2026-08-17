@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { exercises } from "../../data/exercises";
+import { supabase } from "@/lib/supabase";
 
 type WorkoutSet = {
   id: number;
@@ -24,8 +25,23 @@ const HISTORY_KEY = "muscle-ai-workout-history";
 
 export default function ExercisePage() {
   const params = useParams();
+  const router = useRouter();
 
   const exerciseId = params.exerciseId as string;
+
+  useEffect(() => {
+  async function checkUser() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.replace("/login");
+    }
+  }
+
+  checkUser();
+}, [router]);
 
   const exercise = exercises.find(
     (item) => item.id === exerciseId
@@ -148,43 +164,69 @@ export default function ExercisePage() {
     setSets(sets.filter((set) => set.id !== id));
   }
 
-  function completeWorkout() {
-    if (!exercise) {
-      return;
-    }
-
-    if (sets.length === 0) {
-      alert("セットを1つ以上登録してください");
-      return;
-    }
-
-    const volume = sets.reduce(
-      (total, set) => total + set.weight * set.reps,
-      0
-    );
-
-    const newHistory: WorkoutHistory = {
-      id: Date.now(),
-      date: new Date().toLocaleDateString("ja-JP"),
-      exercise: exercise.name,
-      exerciseId: exercise.id,
-      sets,
-      volume,
-    };
-
-    const updatedHistory = [newHistory, ...history];
-
-    localStorage.setItem(
-      HISTORY_KEY,
-      JSON.stringify(updatedHistory)
-    );
-
-    setHistory(updatedHistory);
-    setSets([]);
-    localStorage.removeItem(currentSetsKey);
-
-    alert("トレーニング記録を保存しました！");
+  async function completeWorkout() {
+  if (!exercise) {
+    return;
   }
+
+  if (sets.length === 0) {
+    alert("セットを1つ以上登録してください");
+    return;
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    alert("ログインしてください");
+    return;
+  }
+
+  const volume = sets.reduce(
+    (total, set) => total + set.weight * set.reps,
+    0
+  );
+
+  const { error } = await supabase
+    .from("workouts")
+    .insert({
+      user_id: user.id,
+      exercise_id: exercise.id,
+      exercise_name: exercise.name,
+      sets: sets,
+      volume: volume,
+    });
+
+  if (error) {
+    console.error(error);
+    alert(`保存に失敗しました: ${error.message}`);
+    return;
+  }
+
+  const newHistory: WorkoutHistory = {
+    id: Date.now(),
+    date: new Date().toLocaleDateString("ja-JP"),
+    exercise: exercise.name,
+    exerciseId: exercise.id,
+    sets,
+    volume,
+  };
+
+  const updatedHistory = [newHistory, ...history];
+
+  localStorage.setItem(
+    HISTORY_KEY,
+    JSON.stringify(updatedHistory)
+  );
+
+  setHistory(updatedHistory);
+  setSets([]);
+  localStorage.removeItem(currentSetsKey);
+
+  alert("クラウドにトレーニング記録を保存しました！");
+　}
 
   if (!exercise) {
     return (

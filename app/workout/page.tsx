@@ -1,8 +1,30 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { exercises } from "../data/exercises";
+import { supabase } from "@/lib/supabase";
 
 export default function WorkoutPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    async function checkUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.replace("/login");
+      }
+    }
+
+    checkUser();
+  }, [router]);
+
   const bodyParts = ["胸", "背中", "脚", "肩", "腕"];
+
 
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-10 text-white">
