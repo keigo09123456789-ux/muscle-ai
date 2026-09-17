@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { exercises } from "../../data/exercises";
 import { supabase } from "@/lib/supabase";
 
@@ -24,10 +24,15 @@ type WorkoutHistory = {
 const HISTORY_KEY = "muscle-ai-workout-history";
 
 export default function ExercisePage() {
-  const params = useParams();
-  const router = useRouter();
+ const params = useParams();
+const router = useRouter();
+const searchParams = useSearchParams();
 
-  const exerciseId = params.exerciseId as string;
+const exerciseId = params.exerciseId as string;
+
+const recommendedWeight = searchParams.get("weight");
+const recommendedReps = searchParams.get("reps");
+const recommendedSets = searchParams.get("sets");
 
   useEffect(() => {
   async function checkUser() {
@@ -52,7 +57,18 @@ export default function ExercisePage() {
 
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
-  const [sets, setSets] = useState<WorkoutSet[]>([]);
+  
+  useEffect(() => {
+  if (recommendedWeight) {
+    setWeight(recommendedWeight);
+  }
+
+  if (recommendedReps) {
+    setReps(recommendedReps);
+  }
+}, [recommendedWeight, recommendedReps]);
+  
+const [sets, setSets] = useState<WorkoutSet[]>([]);
   const [history, setHistory] = useState<WorkoutHistory[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -301,7 +317,7 @@ export default function ExercisePage() {
             <input
               type="number"
               min="0"
-              step="0.5"
+              autoFocus
               value={weight}
               onChange={(event) =>
                 setWeight(event.target.value)

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import {
   LineChart,
   Line,
@@ -11,7 +13,9 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+
 import { supabase } from "@/lib/supabase";
+import { exercises } from "../data/exercises";
 
 type WorkoutSet = {
   id: number;
@@ -29,6 +33,8 @@ type WorkoutHistory = {
 };
 
 export default function HistoryPage() {
+  const router = useRouter();
+
   const [history, setHistory] = useState<WorkoutHistory[]>([]);
   const [selectedExercise, setSelectedExercise] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -36,7 +42,7 @@ export default function HistoryPage() {
 
   const [aiAdvice, setAiAdvice] = useState("");
 const [aiLoading, setAiLoading] = useState(false);
-
+const [aiMenu, setAiMenu] = useState("");
   useEffect(() => {
     async function loadHistory() {
       setLoading(true);
@@ -108,6 +114,15 @@ const [aiLoading, setAiLoading] = useState(false);
     }
 
     setAiAdvice(data.advice);
+    const menuMatch = data.advice.match(
+  /5\.\s*次回メニュー\s*\n?\s*(.+)/
+);
+
+if (menuMatch) {
+  setAiMenu(menuMatch[1].trim());
+} else {
+  setAiMenu("");
+}
   } catch (error) {
     console.error(error);
     setAiAdvice("AIコーチの分析中にエラーが発生しました。");
@@ -259,6 +274,34 @@ const [aiLoading, setAiLoading] = useState(false);
     </p>
   )}
 
+{aiMenu && (
+  <div className="mt-4 rounded-2xl bg-blue-600 p-5">
+    <p className="text-sm font-bold text-blue-100">
+      🏋️ 次回おすすめメニュー
+    </p>
+
+    <p className="mt-2 text-2xl font-bold text-white">
+      {aiMenu}
+    </p>
+
+    <button 
+ 　onClick={() => {
+  const exercise = exercises.find(
+    (item) => item.name === selectedExercise
+  );
+
+ if (exercise) {
+  router.push(
+    `/workout/${exercise.id}?weight=120&reps=10&sets=2`
+  );
+ }
+}}
+  className="mt-4 w-full rounded-xl bg-white px-4 py-3 font-bold text-blue-600 transition hover:bg-blue-50"
+>
+  このメニューでトレーニングする →
+</button>
+  </div>
+)}
   {aiAdvice && (
 　　<div className="mt-4 whitespace-pre-wrap rounded-xl bg-zinc-800 p-4 leading-7">
     {aiAdvice.replace(/\*\*/g, "")}
