@@ -34,6 +34,9 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
+  const [aiAdvice, setAiAdvice] = useState("");
+const [aiLoading, setAiLoading] = useState(false);
+
   useEffect(() => {
     async function loadHistory() {
       setLoading(true);
@@ -67,7 +70,51 @@ export default function HistoryPage() {
 
     loadHistory();
   }, []);
+   
+  async function askAiCoach() {
+  if (selectedExercise === "all") {
+    setAiAdvice("分析したい種目を選んでください！");
+    return;
+  }
 
+  const targetWorkouts = history.filter(
+    (item) => item.exercise_name === selectedExercise
+  );
+
+  if (targetWorkouts.length === 0) {
+    setAiAdvice("この種目のトレーニング履歴がありません。");
+    return;
+  }
+
+  setAiLoading(true);
+  setAiAdvice("");
+
+  try {
+    const response = await fetch("/api/coach", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        exerciseName: selectedExercise,
+        workouts: targetWorkouts,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "AI分析に失敗しました");
+    }
+
+    setAiAdvice(data.advice);
+  } catch (error) {
+    console.error(error);
+    setAiAdvice("AIコーチの分析中にエラーが発生しました。");
+  } finally {
+    setAiLoading(false);
+  }
+}
   const exerciseNames = useMemo(() => {
     return Array.from(
       new Set(history.map((item) => item.exercise_name))
@@ -188,7 +235,36 @@ export default function HistoryPage() {
                 ))}
               </select>
             </div>
+            {/* AIコーチ */}
+<section className="mt-8 rounded-2xl bg-zinc-900 p-5">
+  <h2 className="text-2xl font-bold">
+    🤖 AIコーチ
+  </h2>
 
+  <p className="mt-2 text-sm text-zinc-400">
+    過去のトレーニング履歴から次回のメニューを分析します
+  </p>
+
+  <button
+    onClick={askAiCoach}
+    disabled={aiLoading || selectedExercise === "all"}
+    className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50"
+  >
+    {aiLoading ? "AIが分析中..." : "AIコーチに分析してもらう"}
+  </button>
+
+  {selectedExercise === "all" && (
+    <p className="mt-3 text-sm text-zinc-400">
+      分析したい種目を選択してください
+    </p>
+  )}
+
+  {aiAdvice && (
+　　<div className="mt-4 whitespace-pre-wrap rounded-xl bg-zinc-800 p-4 leading-7">
+    {aiAdvice.replace(/\*\*/g, "")}
+  </div>
+)}
+</section>
             <section className="mt-8 grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl bg-zinc-900 p-5">
                 <p className="text-sm text-zinc-400">
