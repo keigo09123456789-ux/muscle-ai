@@ -23,6 +23,14 @@ type WorkoutHistory = {
 
 const HISTORY_KEY = "muscle-ai-workout-history";
 
+function calculateEstimated1RM(weight: number, reps: number) {
+  if (weight <= 0 || reps <= 0) {
+    return 0;
+  }
+
+  return weight * (1 + reps / 30);
+}
+
 export default function ExercisePage() {
  const params = useParams();
 const router = useRouter();
@@ -69,7 +77,11 @@ const recommendedSets = searchParams.get("sets");
 }, [recommendedWeight, recommendedReps]);
   
 const [sets, setSets] = useState<WorkoutSet[]>([]);
-  const [history, setHistory] = useState<WorkoutHistory[]>([]);
+const [aiAdvice, setAiAdvice] = useState("");
+const [aiLoading, setAiLoading] = useState(false);
+
+
+const [history, setHistory] = useState<WorkoutHistory[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -98,22 +110,167 @@ const [sets, setSets] = useState<WorkoutSet[]>([]);
     );
   }, [sets, loaded, currentSetsKey]);
 
-  const exerciseHistory = useMemo(() => {
-    return history.filter(
+ const exerciseHistory = useMemo(() => {
+  return history
+    .filter(
       (workout) => workout.exerciseId === exerciseId
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.date).getTime() -
+        new Date(a.date).getTime()
     );
-  }, [history, exerciseId]);
+}, [history, exerciseId]);
 
   const latestWorkout = exerciseHistory[0];
+
+  const latestEstimated1RM = useMemo(() => {
+  if (!latestWorkout || latestWorkout.sets.length === 0) {
+    return null;
+  }
+
+  const estimated1RMs = latestWorkout.sets.map((set) =>
+    calculateEstimated1RM(set.weight, set.reps)
+  );
+
+  return Math.max(...estimated1RMs);
+}, [latestWorkout]);
+
+const bestEstimated1RM = useMemo(() => {
+  const previousWorkouts = exerciseHistory.slice(1);
+
+  if (previousWorkouts.length === 0) {
+    return null;
+  }
+
+  const allEstimated1RMs = previousWorkouts.flatMap((workout) =>
+    workout.sets.map((set) =>
+      calculateEstimated1RM(set.weight, set.reps)
+    )
+  );
+
+  if (allEstimated1RMs.length === 0) {
+    return null;
+  }
+
+  return Math.max(...allEstimated1RMs);
+}, [exerciseHistory]);
+ 
+  const recentFiveWorkouts = exerciseHistory.slice(0, 5);
+  const recentFiveVolumes = recentFiveWorkouts.map(
+  (workout) => workout.volume
+);
+
+const recentFiveEstimated1RMs = recentFiveWorkouts.map(
+  (workout) => {
+    const estimated1RMs = workout.sets.map((set) =>
+      calculateEstimated1RM(set.weight, set.reps)
+    );
+
+    if (estimated1RMs.length === 0) {
+      return 0;
+    }
+
+    return Math.max(...estimated1RMs);
+  }
+);
+
+const trainingTrend = useMemo(() => {
+  if (
+    recentFiveVolumes.length < 2 ||
+    recentFiveEstimated1RMs.length < 2
+  ) {
+    return "データ不足";
+  }
+
+  const latestVolume = recentFiveVolumes[0];
+  const oldestVolume =
+    recentFiveVolumes[recentFiveVolumes.length - 1];
+
+  const latest1RM = recentFiveEstimated1RMs[0];
+  const oldest1RM =
+    recentFiveEstimated1RMs[
+      recentFiveEstimated1RMs.length - 1
+    ];
+
+  const volumeGrowth =
+    oldestVolume > 0
+      ? (latestVolume - oldestVolume) / oldestVolume
+      : 0;
+
+  const strengthGrowth =
+    oldest1RM > 0
+      ? (latest1RM - oldest1RM) / oldest1RM
+      : 0;
+
+  if (strengthGrowth > 0.02 || volumeGrowth > 0.05) {
+    return "成長中";
+  }
+
+  if (strengthGrowth < -0.02 && volumeGrowth < -0.05) {
+    return "低下";
+  }
+
+  return "停滞";
+}, [recentFiveVolumes, recentFiveEstimated1RMs]);
+
+
+const volumeChangePercent = useMemo(() => {
+  if (recentFiveVolumes.length < 2) {
+    return null;
+  }
+
+  const latest = recentFiveVolumes[0];
+  const oldest =
+    recentFiveVolumes[recentFiveVolumes.length - 1];
+
+  if (oldest === 0) {
+    return null;
+  }
+
+  return ((latest - oldest) / oldest) * 100;
+}, [recentFiveVolumes]);
+
+const estimated1RMChangePercent = useMemo(() => {
+  if (recentFiveEstimated1RMs.length < 2) {
+    return null;
+  }
+
+  const latest = recentFiveEstimated1RMs[0];
+  const oldest =
+    recentFiveEstimated1RMs[
+      recentFiveEstimated1RMs.length - 1
+    ];
+
+  if (oldest === 0) {
+    return null;
+  }
+
+  return ((latest - oldest) / oldest) * 100;
+}, [recentFiveEstimated1RMs]);
 
   const recommendation = useMemo(() => {
     if (!latestWorkout) {
       return {
         weight: null,
         reps: null,
+        sets: null,
         message: "まずは最初の記録を作ってみましょう！",
       };
     }
+    
+    const recentSetCounts = exerciseHistory
+  .slice(0, 5)
+  .map((workout) => workout.sets.length);
+
+const averageSets =
+  recentSetCounts.reduce((sum, count) => sum + count, 0) /
+  recentSetCounts.length;
+
+const recommendedSets =
+  recentSetCounts.length > 0
+    ? Math.max(1, Math.round(averageSets))
+    : 1;
 
     const bestSet = latestWorkout.sets.reduce((best, set) => {
       if (set.weight > best.weight) {
@@ -134,6 +291,7 @@ const [sets, setSets] = useState<WorkoutSet[]>([]);
       return {
         weight: bestSet.weight + 2.5,
         reps: "8〜10",
+        sets: recommendedSets,
         message:
           "前回10回以上できています。重量アップに挑戦しましょう🔥",
       };
@@ -143,6 +301,7 @@ const [sets, setSets] = useState<WorkoutSet[]>([]);
       return {
         weight: bestSet.weight,
         reps: "10",
+        sets: recommendedSets,
         message:
           "前回の重量を維持して、10回達成を狙いましょう💪",
       };
@@ -151,6 +310,7 @@ const [sets, setSets] = useState<WorkoutSet[]>([]);
     return {
       weight: Math.max(bestSet.weight - 2.5, 0),
       reps: "8〜10",
+     sets: recommendedSets,
       message:
         "少し重量を下げて、フォームと回数を安定させましょう。",
     };
@@ -179,6 +339,39 @@ const [sets, setSets] = useState<WorkoutSet[]>([]);
   function deleteSet(id: number) {
     setSets(sets.filter((set) => set.id !== id));
   }
+
+  async function askAiCoach() {
+  if (!exercise) return;
+
+  setAiLoading(true);
+  setAiAdvice("");
+
+  try {
+    const response = await fetch("/api/coach", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        exerciseName: exercise.name,
+        workouts: exerciseHistory.slice(0, 5),
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "AI分析に失敗しました");
+    }
+
+    setAiAdvice(data.advice);
+  } catch (error) {
+    console.error(error);
+    setAiAdvice("AI分析に失敗しました");
+  } finally {
+    setAiLoading(false);
+  }
+}
 
   async function completeWorkout() {
   if (!exercise) {
@@ -292,10 +485,12 @@ const [sets, setSets] = useState<WorkoutSet[]>([]);
                 次回おすすめ
               </p>
 
-              <p className="mt-1 text-3xl font-bold">
-                {recommendation.weight}kg ×{" "}
-                {recommendation.reps}回
-              </p>
+            <p className="mt-1 text-3xl font-bold">
+              {recommendation.weight}kg ×{" "}
+              {recommendation.reps}回 ×{" "}
+              {recommendation.sets}セット
+            </p>
+
             </>
           ) : (
             <p className="mt-4 text-xl font-bold">
@@ -306,7 +501,77 @@ const [sets, setSets] = useState<WorkoutSet[]>([]);
           <p className="mt-4 text-sm leading-6 text-zinc-300">
             {recommendation.message}
           </p>
+
+          {latestEstimated1RM !== null && (
+  <div className="mt-4 rounded-xl bg-zinc-800 p-4">
+    <p className="text-sm text-zinc-400">
+      推定1RM
+    </p>
+
+    <p className="mt-1 text-2xl font-bold">
+      {latestEstimated1RM.toFixed(1)}kg
+    </p>
+
+    {bestEstimated1RM !== null &&
+  latestEstimated1RM > bestEstimated1RM && (
+    <>
+      <p className="mt-2 text-sm text-zinc-400">
+        過去最高：{bestEstimated1RM.toFixed(1)}kg
+      </p>
+
+      <p className="mt-1 text-sm font-bold">
+        🏆 NEW PR！ +
+        {(latestEstimated1RM - bestEstimated1RM).toFixed(1)}kg
+      </p>
+    </>
+  )}
+
+  </div>
+)}
+
+          <div className="mt-4 rounded-xl bg-zinc-800 p-4">
+  <p className="text-sm text-zinc-400">
+    最近5回のトレーニング傾向
+  </p>
+
+  <p className="mt-1 text-xl font-bold">
+  {trainingTrend === "成長中" && "📈 成長中"}
+  {trainingTrend === "停滞" && "➡️ 停滞"}
+  {trainingTrend === "低下" && "📉 低下"}
+  {trainingTrend === "データ不足" && "📊 データ不足"}
+</p>
+
+  {volumeChangePercent !== null && (
+  <p className="mt-1 text-sm text-zinc-400">
+    総ボリューム変化：
+    {volumeChangePercent > 0 ? "+" : ""}
+    {volumeChangePercent.toFixed(1)}%
+  </p>
+)}
+
+{estimated1RMChangePercent !== null && (
+  <p className="mt-1 text-sm text-zinc-400">
+    推定1RM変化：
+    {estimated1RMChangePercent > 0 ? "+" : ""}
+    {estimated1RMChangePercent.toFixed(1)}%
+  </p>
+)}
+
+
+  </div>
+
         </section>
+    
+
+<button
+  type="button"
+  onClick={askAiCoach}
+  disabled={aiLoading}
+  className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-4 font-bold text-white disabled:opacity-50"
+>
+  {aiLoading ? "AI分析中..." : "🤖 AIコーチに次回メニューを聞く"}
+</button>
+
 
         <div className="mt-8 rounded-2xl bg-zinc-900 p-6">
           <label className="block text-sm text-zinc-300">
@@ -319,9 +584,14 @@ const [sets, setSets] = useState<WorkoutSet[]>([]);
               min="0"
               autoFocus
               value={weight}
-              onChange={(event) =>
-                setWeight(event.target.value)
-              }
+             onChange={(event) => {
+  const value = event.target.value.replace(/[０-９．]/g, (char) =>
+    String.fromCharCode(char.charCodeAt(0) - 0xfee0)
+  );
+
+  setWeight(value);
+}}
+              
               placeholder="例：80"
               className="w-full rounded-xl bg-zinc-800 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -335,12 +605,18 @@ const [sets, setSets] = useState<WorkoutSet[]>([]);
 
           <div className="mt-2 flex items-center gap-3">
             <input
-              type="number"
+              type="text"
+inputMode="numeric"
               min="1"
               value={reps}
-              onChange={(event) =>
-                setReps(event.target.value)
-              }
+             onChange={(event) => {
+  const value = event.target.value.replace(/[０-９]/g, (char) =>
+    String.fromCharCode(char.charCodeAt(0) - 0xfee0)
+  );
+
+  setReps(value);
+}}
+           
               placeholder="例：10"
               className="w-full rounded-xl bg-zinc-800 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
             />

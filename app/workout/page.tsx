@@ -11,7 +11,7 @@ export default function WorkoutPage() {
  
   const [weeklyWorkoutCount, setWeeklyWorkoutCount] = useState(0);
   const [weeklyVolume, setWeeklyVolume] = useState(0);
-  const [latestWorkout, setLatestWorkout] = useState<any>(null);
+  const [recentWorkouts, setRecentWorkouts] = useState<any[]>([]);
 
   useEffect(() => {
     async function checkUser() {
@@ -53,16 +53,15 @@ if (!error && data) {
 
   setWeeklyVolume(totalVolume);
 
-  const { data: latestData, error: latestError } = await supabase
+  const { data: recentData, error: recentError } = await supabase
   .from("workouts")
   .select("*")
   .eq("user_id", user.id)
   .order("created_at", { ascending: false })
-  .limit(1)
-  .maybeSingle();
+  .limit(3);
 
-if (!latestError && latestData) {
-  setLatestWorkout(latestData);
+if (!recentError && recentData) {
+  setRecentWorkouts(recentData);
 }
 }
     }
@@ -113,35 +112,43 @@ if (!latestError && latestData) {
   </div>
 </div>
 
-{latestWorkout && (
-  <div className="mt-4 flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-    <div>
-      <p className="text-sm text-zinc-400">
-        最近のトレーニング
-      </p>
+{recentWorkouts.length > 0 && (
+  <div className="mt-4 space-y-3">
+    <p className="text-sm text-zinc-400">
+      最近のトレーニング
+    </p>
 
-      <p className="mt-2 text-xl font-bold">
-        🏋️ {latestWorkout.exercise_name}
-      </p>
+    {recentWorkouts.map((workout) => (
+      <div
+        key={workout.id}
+        onClick={() => router.push(`/workout/${workout.exercise_id}`)}
+        className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900 p-5"
+      >
+        <div>
+          <p className="text-xl font-bold">
+            🏋️ {workout.exercise_name}
+          </p>
 
-      <p className="mt-2 text-zinc-300">
-        総ボリューム：
-        {Number(latestWorkout.volume).toLocaleString()}kg
-      </p>
-    </div>
+          <p className="mt-2 text-zinc-300">
+            総ボリューム：
+            {Number(workout.volume).toLocaleString()}kg
+          </p>
+        </div>
 
-   <div className="text-right">
-  <p className="text-2xl font-bold">
-    {latestWorkout.sets?.[0]?.weight || 0}kg
-    <span className="mx-2 text-zinc-500">×</span>
-    {latestWorkout.sets?.[0]?.reps || 0}回
-  </p>
+        <div className="text-right">
+          <p className="text-2xl font-bold">
+            {workout.sets?.[0]?.weight || 0}kg
+            <span className="mx-2 text-zinc-500">×</span>
+            {workout.sets?.[0]?.reps || 0}回
+          </p>
 
-  <p className="mt-1 text-sm text-zinc-400">
-    {latestWorkout.sets?.length || 0}セット
-  </p>
-</div>
-</div>
+          <p className="mt-1 text-sm text-zinc-400">
+            {workout.sets?.length || 0}セット
+          </p>
+        </div>
+      </div>
+    ))}
+  </div>
 )}
 
         <div className="mt-10 space-y-10">
