@@ -340,34 +340,137 @@ const recommendedSets =
     setSets(sets.filter((set) => set.id !== id));
   }
 
-  async function askAiCoach() {
+ async function askAiCoach() {
   if (!exercise) return;
 
   setAiLoading(true);
   setAiAdvice("");
 
   try {
-    const response = await fetch("/api/coach", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        exerciseName: exercise.name,
-        workouts: exerciseHistory.slice(0, 5),
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "AI分析に失敗しました");
+    // 過去履歴がない場合
+    if (!exerciseHistory || exerciseHistory.length === 0) {
+      setAiAdvice(
+        "まだトレーニング履歴がありません。まずは1回トレーニングを記録しましょう💪"
+      );
+      return;
     }
 
-    setAiAdvice(data.advice);
+    // 最新のトレーニング
+    const latestWorkout = exerciseHistory[0];
+    const latestSets = latestWorkout.sets ?? [];
+
+    if (latestSets.length === 0) {
+      setAiAdvice("セット記録がありません。");
+      return;
+    }
+
+    // 最新トレーニングの中で最も重いセット
+    const bestSet = latestSets.reduce((best: any, current: any) => {
+      return Number(current.weight) > Number(best.weight)
+        ? current
+        : best;
+    });
+
+    const weight = Number(bestSet.weight);
+    const reps = Number(bestSet.reps);
+
+    let nextWeight = weight;
+    let minReps = 8;
+    let maxReps = 10;
+    let nextSets = latestSets.length;
+
+    let comment = "";
+
+    // 10回以上できた → 2.5kgアップ
+    if (reps >= 10) {
+      nextWeight = weight + 2.5;
+      minReps = 8;
+      maxReps = 10;
+
+      comment =
+        `前回${reps}回できています。` +
+        "重量アップに挑戦しましょう🔥";
+    }
+
+    // 8〜9回 → 同じ重量で回数を伸ばす
+    else if (reps >= 8) {
+      nextWeight = weight;
+      minReps = reps + 1;
+      maxReps = 10;
+
+      comment =
+        `前回${reps}回でした。` +
+        "同じ重量で回数アップを狙いましょう💪";
+    }
+
+    // 7回以下 → 同じ重量で8回を目標
+    else {
+      nextWeight = weight;
+      minReps = reps;
+      maxReps = 8;
+
+      comment =
+        "まずはこの重量を安定させて8回を目指しましょう💪";
+    }
+
+    // 推奨セット数は2〜3セット
+    nextSets = Math.min(Math.max(nextSets, 2), 3);
+
+    // Epley式で推定1RM
+    const estimated1RM = weight * (1 + reps / 30);
+
+    // 過去最高の推定1RMを計算
+    let previousBest1RM = 0;
+
+    exerciseHistory.slice(1).forEach((workout: any) => {
+      (workout.sets ?? []).forEach((set: any) => {
+        const w = Number(set.weight);
+        const r = Number(set.reps);
+
+        if (!w || !r) return;
+
+        const oneRM = w * (1 + r / 30);
+
+        if (oneRM > previousBest1RM) {
+          previousBest1RM = oneRM;
+        }
+      });
+    });
+
+    let growthMessage = "";
+
+    if (previousBest1RM > 0) {
+      const difference = estimated1RM - previousBest1RM;
+
+      if (difference > 0) {
+        growthMessage =
+          `📈 推定1RMが過去記録より` +
+          `${difference.toFixed(1)}kg伸びています！`;
+      } else if (difference < -2) {
+        growthMessage =
+          "📊 前回より少し低めです。疲労を考慮して無理せず進めましょう。";
+      } else {
+        growthMessage = "➡️ 筋力は安定しています。";
+      }
+    }
+
+    const advice = `
+🤖 ${exercise.name} AIコーチ
+
+${comment}
+
+${growthMessage}
+
+推定1RM：${estimated1RM.toFixed(1)}kg
+
+次回おすすめ
+${nextWeight.toFixed(1)}kg × ${minReps}〜${maxReps}回 × ${nextSets}セット
+    `.trim();
+
+    setAiAdvice(advice);
   } catch (error) {
     console.error(error);
-    setAiAdvice("AI分析に失敗しました");
+    setAiAdvice("AIコーチの分析中にエラーが発生しました。");
   } finally {
     setAiLoading(false);
   }
