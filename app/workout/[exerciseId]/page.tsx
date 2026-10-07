@@ -341,6 +341,7 @@ const recommendedSets =
   }
 
  async function askAiCoach() {
+
   if (!exercise) return;
 
   setAiLoading(true);
@@ -675,6 +676,11 @@ ${nextWeight.toFixed(1)}kg × ${minReps}〜${maxReps}回 × ${nextSets}セット
   {aiLoading ? "AI分析中..." : "🤖 AIコーチに次回メニューを聞く"}
 </button>
 
+{aiAdvice && (
+  <div className="mt-4 whitespace-pre-wrap rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-sm leading-7 text-zinc-200">
+    {aiAdvice}
+  </div>
+)}
 
         <div className="mt-8 rounded-2xl bg-zinc-900 p-6">
           <label className="block text-sm text-zinc-300">
