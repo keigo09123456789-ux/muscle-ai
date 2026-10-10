@@ -23,6 +23,8 @@ test("トレーニングのセットを追加できる", async ({ page }) => {
   // ④ セット入力
   await page.getByPlaceholder("例：80").fill("80");
   await page.getByPlaceholder("例：10").fill("10");
+  await expect(page.getByPlaceholder("例：80")).toHaveValue("80");
+await expect(page.getByPlaceholder("例：10")).toHaveValue("10");
 
   await page.getByRole("button", { name: "セットを追加" }).click();
 
