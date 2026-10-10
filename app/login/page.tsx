@@ -5,6 +5,23 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
+  function translateAuthError(message: string): string {
+  const errors: Record<string, string> = {
+    "Invalid login credentials":
+      "メールアドレスまたはパスワードが違います",
+    "Email not confirmed":
+      "メール認証が完了していません。届いたメールを確認してください",
+    "User already registered":
+      "このメールアドレスはすでに登録されています",
+    "Password should be at least 6 characters":
+      "パスワードは6文字以上で入力してください",
+    "Email rate limit exceeded":
+      "メールの送信回数が上限に達しました。時間をおいてお試しください",
+  };
+
+  return errors[message] ?? "エラーが発生しました。入力内容をご確認ください";
+}
+
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -20,11 +37,13 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setMessage(error.message);
+      setMessage(translateAuthError(error.message));
       return;
     }
 
-    setMessage("新規登録できました！");
+    setMessage(
+  "登録したメールアドレスに認証メールを送信しました。届いたメールのリンクから認証を行ってください。"
+);
   }
 
   async function signIn() {
@@ -36,7 +55,7 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setMessage(error.message);
+      setMessage(translateAuthError(error.message));
       return;
     }
 
