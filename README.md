@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 💪 MuscleAI
 
-## Getting Started
+**トレーニング記録・成長分析・AIコーチ機能を備えた筋トレ管理Webアプリ**
 
-First, run the development server:
+MuscleAIは、日々のトレーニングを記録し、重量・回数・セット数などのデータから成長を可視化するWebアプリケーションです。
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+筋力の成長を数値で確認できるほか、トレーニング履歴に応じたアドバイスを受けられるAIコーチ機能を搭載しています。
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 主な機能
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **ユーザー認証**：Supabase Authenticationによるログイン
+- **トレーニング記録**：種目ごとの重量・回数・セット数の登録
+- **成長グラフ**：推定1RMや総ボリュームの推移を可視化
+- **パーソナルレコード管理**：自己ベストや記録更新の確認
+- **AIコーチ**：トレーニング履歴に基づいたアドバイス
+- **レスポンシブ対応**：PC・スマートフォンで利用可能
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠 使用技術
 
-## Learn More
+| 分類 | 技術 |
+|---|---|
+| フロントエンド | Next.js / React / TypeScript |
+| スタイリング | Tailwind CSS |
+| データベース・認証 | Supabase |
+| グラフ表示 | Recharts |
+| AI機能 | OpenAI API |
+| E2Eテスト | Playwright |
+| CI | GitHub Actions |
+| コンテナ | Docker |
+| デプロイ | Vercel |
 
-To learn more about Next.js, take a look at the following resources:
+## 🌐 デモ
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+https://muscle-ai-eight.vercel.app/
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+※ アプリの利用にはログインが必要です。
 
-## Deploy on Vercel
+## 🧪 テスト・開発環境
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Playwrightを使用して、ログインからトレーニングセット追加までのE2Eテストを実装しています。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+GitHub Actionsでは、GitHubへのpush時に自動テストを実行するCIワークフローを構築しました。
+
+Dockerでは、開発環境でのコンテナ起動に加え、マルチステージビルドによる本番実行用イメージの作成と動作確認を行っています。
+
+## 📌 今後の改善予定
+
+- テストケースの拡充
+- エラーハンドリングと使いやすさの改善
+- Dockerを利用した開発・運用手順の整備
+- セキュリティとパフォーマンスの改善
