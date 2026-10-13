@@ -29,6 +29,10 @@ jobs:
         env:
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+          TEST_USER_B_EMAIL: ${{ secrets.TEST_USER_B_EMAIL }}
+          TEST_USER_B_PASSWORD: ${{ secrets.TEST_USER_B_PASSWORD }}
+  
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
 
