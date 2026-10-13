@@ -61,6 +61,46 @@ test("アカウントBはアカウントAの記録を取得できない", async 
     return session.user.id as string;
   });
 
+  // アカウントAに記録が存在することを確認
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const publishableKey =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+if (!supabaseUrl || !publishableKey) {
+  throw new Error("Supabaseの環境変数が未設定です");
+}
+
+const accessTokenA = await page.evaluate(() => {
+  const key = Object.keys(localStorage).find(
+    (key) => key.startsWith("sb-") && key.endsWith("-auth-token")
+  );
+
+  if (!key) throw new Error("Aのセッションが見つかりません");
+
+  const session = JSON.parse(localStorage.getItem(key)!);
+  return session.access_token as string;
+});
+
+const responseA = await page.request.get(
+  `${supabaseUrl}/rest/v1/workouts`,
+  {
+    params: {
+      select: "id,user_id",
+      user_id: `eq.${userIdA}`,
+    },
+    headers: {
+      apikey: publishableKey,
+      Authorization: `Bearer ${accessTokenA}`,
+    },
+  }
+);
+
+expect(responseA.ok()).toBe(true);
+
+const recordsA = await responseA.json();
+expect(recordsA.length).toBeGreaterThan(0);
+
+
   // Bは別のブラウザ環境でログイン
   const contextB = await page.context().browser()!.newContext();
   const pageB = await contextB.newPage();
