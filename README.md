@@ -199,3 +199,28 @@ kubectl exec <Pod名> -c muscle-ai -- printenv APP_ENV
 設定変更前にDry Runと差分確認を実施し、変更後はDeploymentとPodの状態を確認しました。
 
 また、Pod削除による障害再現と復旧確認を行い、期待結果と実際の結果を比較しました。
+
+### Kubernetes CI Negative Testing
+
+Kubernetesマニフェストの設定ミスをCIで検出できることを確認するため、正常系・異常系のテストを実施した。
+
+| Test case | Configuration | Expected result | Actual result |
+|---|---|---|---|
+| 正常系 | `replicas: 3` | CI成功 | PASS |
+| 異常系 | `replicas: -3` | CI失敗 | PASS |
+
+**検証方法**
+
+- GitHub ActionsでKubernetesマニフェストを自動検証
+- `kubeconform` によるスキーマ検証
+- PythonとPyYAMLによるレプリカ数の追加検証
+- テスト用ブランチとPull Requestで不正設定を検証
+- CIが `Invalid replicas in k8s/deployment.yaml: -3` を出力して失敗することを確認
+- テスト用PRはmainにマージせずクローズ
+- 正常なmainブランチでは `Replica count validation passed` を確認
+
+**結果**
+
+Kubernetes設定の正常系・異常系をCIで検証し、不正なレプリカ数を自動検出できることを確認した。
+
+※ 本検証はマニフェストの静的検証であり、実際のクラスタへのデプロイ成功を保証するものではない。
