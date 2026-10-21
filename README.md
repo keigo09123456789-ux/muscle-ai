@@ -125,3 +125,77 @@ GitHubへのpush時にPlaywrightの自動テストを実行する仕組みを構
 - 正常系だけでなく、異なるユーザー間のデータアクセスも検証する
 - テスト対象の記録が実際に存在することを確認し、誤ったテスト成功を防ぐ
 - ローカル環境だけでなくCI環境でもテストを実行し、変更による不具合の早期発見につなげる
+
+
+## Kubernetes 構築・QA検証
+
+MuscleAIをDocker Desktop上のローカルKubernetes環境で動作させ、DeploymentによるPod管理、障害復旧、ConfigMap・Secretによる設定管理を検証しました。
+
+### 検証環境
+
+- Kubernetes：Docker Desktop（ローカル、単一Node）
+- コンテナイメージ：`muscle-ai-prod:latest`
+- Deployment：`muscle-ai`
+- レプリカ数：3
+- Service：ClusterIP、TCP 3000
+- 設定管理：ConfigMap / Secret
+
+### 検証結果
+
+| テスト項目 | 期待結果 | 実際の結果 | 判定 |
+|---|---|---|---|
+| コンテナ起動 | Podが正常に起動する | `1/1 Running` を確認 | PASS |
+| レプリカ数変更 | Podが3個になる | 3個とも `1/1 Running` | PASS |
+| Pod削除後の自動復旧 | 削除後に新しいPodが作成される | 新しいPodが自動生成された | PASS |
+| Deployment更新 | 3個のPodが正常稼働する | `3/3 Ready` を確認 | PASS |
+| ConfigMap参照 | `APP_ENV=local` が設定される | `printenv APP_ENV` で `local` を確認 | PASS |
+| Secret参照 | ダミーの環境変数が設定される | 値を表示せず `SECRET_OK` を確認 | PASS |
+
+### Pod自動復旧テスト
+
+**目的：** Deploymentが管理するPodを削除した場合、指定したレプリカ数が自動的に維持されることを確認する。
+
+**手順：**
+
+1. `kubectl scale deployment muscle-ai --replicas=3` でPodを3個に設定する。
+2. `kubectl get pods -l app=muscle-ai` で稼働状態を確認する。
+3. `kubectl delete pod <Pod名>` でPodを1個削除する。
+4. 再度Pod一覧を取得する。
+
+**結果：** 削除したPodとは異なる名前のPodが新たに作成され、3個とも `1/1 Running` になった。
+
+**判定：PASS**
+
+### ConfigMap・Secret参照テスト
+
+ConfigMapの `APP_ENV` をDeploymentから参照し、Pod内で `local` と表示されることを確認しました。
+
+また、ダミー値を登録したKubernetes SecretをDeploymentから参照し、Pod内で環境変数が空でないことを `SECRET_OK` で確認しました。
+
+実際のAPIキーやパスワードはテストに使用していません。
+
+### 使用した主なコマンド
+
+~~~bash
+kubectl get deployments,pods -l app=muscle-ai
+kubectl scale deployment muscle-ai --replicas=3
+kubectl delete pod <Pod名>
+kubectl apply --dry-run=client -f k8s/deployment.yaml
+kubectl diff -f k8s/deployment.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl exec <Pod名> -c muscle-ai -- printenv APP_ENV
+~~~
+
+### 検証範囲・制限事項
+
+- ローカルの単一Node環境で検証しており、Node障害時の可用性は未検証です。
+- Podの自動再作成は確認しましたが、ユーザー通信が無停止だったことまでは検証していません。
+- Secretについては環境変数の存在確認までで、RBACや暗号化設定の検証は実施していません。
+- コンテナイメージはローカルKubernetes環境へ手動で取り込んでいます。別環境での再現にはイメージの準備が必要です。
+- Deploymentが参照する `muscle-ai-demo-secret` は、デプロイ前に別途作成する必要があります。
+
+### QAとして意識した点
+
+設定変更前にDry Runと差分確認を実施し、変更後はDeploymentとPodの状態を確認しました。
+
+また、Pod削除による障害再現と復旧確認を行い、期待結果と実際の結果を比較しました。
