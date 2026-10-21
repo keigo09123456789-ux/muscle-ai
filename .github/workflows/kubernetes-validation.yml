@@ -28,3 +28,22 @@ jobs:
       - name: Validate Kubernetes YAML
         run: |
           kubeconform -strict -summary -kubernetes-version 1.36.0 k8s/
+
+      - name: Validate replica count
+        run: |
+          python3 -m pip install --user PyYAML
+          python3 - <<'PY'
+          import yaml
+          from pathlib import Path
+
+          for path in Path("k8s").glob("*.yaml"):
+              for doc in yaml.safe_load_all(path.read_text()):
+                  if not isinstance(doc, dict):
+                      continue
+                  if doc.get("kind") in ("Deployment", "ReplicaSet", "StatefulSet"):
+                      replicas = doc.get("spec", {}).get("replicas", 1)
+                      if not isinstance(replicas, int) or isinstance(replicas, bool) or replicas < 0:
+                          raise SystemExit(f"Invalid replicas in {path}: {replicas}")
+
+          print("Replica count validation passed")
+          PY
