@@ -224,3 +224,24 @@ Kubernetesマニフェストの設定ミスをCIで検出できることを確�
 Kubernetes設定の正常系・異常系をCIで検証し、不正なレプリカ数を自動検出できることを確認した。
 
 ※ 本検証はマニフェストの静的検証であり、実際のクラスタへのデプロイ成功を保証するものではない。
+
+### Kubernetes Readiness Probe Negative Test
+
+**Objective:** Verify Kubernetes behavior when a readiness probe fails.
+
+**Test procedure:**
+1. Confirmed three healthy Pods (3/3 Ready).
+2. Changed readiness probe endpoint to `/api/health-invalid`.
+3. Observed the new Pod running but not ready (`0/1`).
+4. Confirmed three existing Pods remained ready during the rolling update.
+5. Restored the readiness probe endpoint to `/api/health`.
+6. Verified successful rollout and three healthy Pods.
+
+**Results:**
+- Readiness probe failure was detected.
+- The unhealthy new Pod did not become Ready.
+- Existing healthy Pods remained running.
+- Recovery completed successfully.
+- Final state: 3 Pods Ready, 0 restarts.
+
+**Conclusion:** PASS — Kubernetes correctly handled readiness probe failure and recovery in the local test environment.
