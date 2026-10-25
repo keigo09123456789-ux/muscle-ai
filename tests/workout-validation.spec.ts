@@ -38,6 +38,7 @@ test("TC-002: 文字列の回数を拒否する", async ({ page }) => {
   });
 
   await page.getByRole("button", { name: "セットを追加" }).click();
+  
 
   await expect(
     page.getByText("まだセットが登録されていません")

@@ -317,24 +317,31 @@ const recommendedSets =
   }, [latestWorkout]);
 
   function addSet() {
-    const weightNumber = Number(weight);
-    const repsNumber = Number(reps);
+  const weightNumber = Number(weight);
+  const repsNumber = Number(reps);
 
-    if (weightNumber <= 0 || repsNumber <= 0) {
-      alert("重量と回数を入力してください");
-      return;
-    }
-
-    const newSet: WorkoutSet = {
-      id: Date.now(),
-      weight: weightNumber,
-      reps: repsNumber,
-    };
-
-    setSets([...sets, newSet]);
-    setWeight("");
-    setReps("");
+  // 重量は0より大きい有限の数値、
+  // 回数は1以上の整数だけ許可する
+  if (
+    !Number.isFinite(weightNumber) ||
+    weightNumber <= 0 ||
+    !Number.isInteger(repsNumber) ||
+    repsNumber <= 0
+  ) {
+    alert("重量と回数を入力してください");
+    return;
   }
+
+  const newSet: WorkoutSet = {
+    id: Date.now(),
+    weight: weightNumber,
+    reps: repsNumber,
+  };
+
+  setSets([...sets, newSet]);
+  setWeight("");
+  setReps("");
+}
 
   function deleteSet(id: number) {
     setSets(sets.filter((set) => set.id !== id));
